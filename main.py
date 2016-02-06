@@ -1,6 +1,5 @@
 import pygame
 import math
-import hex
 import os
 from random import shuffle
 from PodSixNet.Connection import ConnectionListener, connection
@@ -9,129 +8,237 @@ from time import sleep
 class BoardGame(ConnectionListener):
 	
 	def __init__(self):	
+	
+		self.on_image = 0
+	
+		#init clock
 		self.clock=pygame.time.Clock()
 		
-		pygame.init()
-		
+		#init pygame, find screen resolution, define scree
+		pygame.init()	
 		self.resl = pygame.display.Info()
 		background_colour = (255,255,255)
 		self.screen = pygame.display.set_mode((self.resl.current_w, self.resl.current_h))
 		pygame.display.set_caption("Board Game")
 		self.screen.fill(background_colour)
 		
+		#load images
 		self.initGraphics()		
 		
-		self.take_deck = Deck(10)
-		self.discard_deck = Deck(0)
+		self.take_deck_pos = Rect(10,400,300,200)
+		self.discard_deck_pos = Rect(250,400,300,200)
 		
-		self.stage = "card"
+		#define stages
+		self.stage = None
 		
-		self.players = [Player() for i in range(4)]
+		#initialise players
+		self.players = [Player() for i in range(2)]
 
-		self.players[0].takeCard(self.take_deck)
-		self.players[1].takeCard(self.take_deck)
-		self.players[2].takeCard(self.take_deck)
-		self.players[3].takeCard(self.take_deck)
-		
+		#connect to network		
 		self.Connect()
 		self.gameid = None
 		self.num = None
 		
+		#search for server
 		self.running = False
 		while not self.running:
 			self.Pump()
 			connection.Pump()
 			sleep(0.01)
 			
+		#player[0] starts
 		if self.num == 0:
 			self.turn = True
 		else:
 			self.turn = False
 			
-		self.justplaced = 10
+		#delay to prevent multiple actions before server responds
+		self.justclicked = 10
 		
 	def Network_startgame(self,data):
-		print "I started Running"
+		#recieve server data on game commencement
 		self.running = True
 		self.num = data["player"]
-		print data["player"]
 		self.gameid = data["gameid"]
+		self.stage = data["stage"]
+		self.p_races = data["p_races"]
+		self.s_races = data["s_races"]
 		
-	def Network_place(self,data):
-		card = data["action"]
+		#self.take_deck = data["takedeck"]
+		#self.discard_deck = data["discarddeck"]
 		
-	def Network_yourturn(self,data):
+	def Network_cardplay(self,data):
+		#recieve server data on turn
+		self.stage = data["stage"]
+		
+	def Network_pracechoose(self,data):
 		self.turn = data["torf"]
+		self.players[data["player"]].primerace = data["prace"]
+		self.p_races.remove(data["prace"])
+		self.stage = data["stage"]
+		
+	def Network_sracechoose(self,data):
+		self.turn = data["torf"]
+		self.players[data["player"]].secrace = data["srace"]
+		self.s_races.remove(data["srace"])
+		self.stage = data["stage"]
+		
+	def Network_takecard(self,data):
+		self.choosecards = data["cards"]
+		self.stage = data["stage"]
+		
+	def Network_cardgain(self,data):
+		self.turn = data["torf"]
+		self.players[data["player"]].hand.append(data["card"])
+		self.stage = data["stage"]
 		
 	def initGraphics(self):
+		#load board image
 		self.board = pygame.image.load("BGHackathon/BOARD.jpg")
 		
+		#load card images
 		self.cardIms = []
+		self.primary_races = []
+		self.secondary_races = []
 		for i in os.listdir("BGHackathon"):
 			if i.startswith("CARD"):
 				self.cardIms.append(pygame.image.load("BGHackathon/"+i))
+			elif i.startswith("RACEprimary"):
+				self.primary_races.append(pygame.image.load("BGHackathon/"+i))
+			elif i.startswith("RACEsecondary"):
+				self.secondary_races.append(pygame.image.load("BGHackathon/"+i))
 				
+		#initialize text
 		self.largeText = pygame.font.Font('freesansbold.ttf',40)
 		self.TextSurf, self.TextRect = self.text_objects("Skip Card Phase?", self.largeText)
 		self.TextRect.center = (self.resl.current_w/2,self.resl.current_h/2)
 				
 	def drawBoard(self):
+		#draw board at screen resolution
 		self.screen.blit(pygame.transform.scale(self.board, (self.resl.current_w-400, self.resl.current_h-200)), [200,100])
 		
 	def drawPlayerCards(self):
+		#draw players cards
 		for i in range(len(self.players)):
-			for j in range(len(self.players[i].hand)):
-				self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (150,200)),(5+j*10,5))
+			if i == self.num:
+				my_hand = RectArray(5,5,200,150,0,100,len(self.players[i].hand))
+				for j in range(len(self.players[i].hand)):
+					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (my_hand.r_array[j].w,my_hand.r_array[j].h)),(my_hand.r_array[j].x,my_hand.r_array[j].y))
+			else:
+				their_hand = RectArray(self.resl.current_w-205,5,200,150,0,40,len(self.players[i].hand))
+				for j in range(len(self.players[i].hand)):
+					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (their_hand.r_array[j].w,their_hand.r_array[j].h)),(their_hand.r_array[j].x,their_hand.r_array[j].y))
+		
+	def drawDecks(self):
+		self.screen.blit(pygame.transform.scale(self.secondary_races[1], [self.take_deck_pos.w,self.take_deck_pos.h]),[self.take_deck_pos.x,self.take_deck_pos.y])
+		#if self.discard_deck.deck:
+			#self.screen.blit(pygame.transform.scale(self.cardIms[self.discard_deck.deck[-1]], [self.discard_deck_pos.w,self.discard_deck_pos.h]),[self.discard_deck_pos.x,self.discard_deck_pos.y])
 		
 	def text_objects(self, text, font):
+		#use for creating textboxes
 		textSurface = font.render(text, True, [0,0,0])
 		return textSurface, textSurface.get_rect()
 		
 	def update(self):
-	
-		self.justplaced-=1
+		#main loop
 		
+		if self.on_image:
+			pygame.mouse.set_cursor(*pygame.cursors.diamond)
+		else:
+			pygame.mouse.set_cursor(*pygame.cursors.arrow)
+			
+		self.on_image = False
+			
+		#decrement just clicked
+		self.justclicked-=1
+		
+		#recieve server data
 		connection.Pump()
 		self.Pump()
 	
+		#60 fps
 		self.clock.tick(60)
+		
+		#refresh screen
 		self.screen.fill([255,255,255])
 		self.drawBoard()
 		
+		#check for exit
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				exit()
 				
 		xpos, ypos = pygame.mouse.get_pos()
-		if xpos < 200:
-			self.screen.blit(self.cardIms[self.players[0].hand[0]],[200,100])	
-
-		if self.stage == "card" and self.turn == True:
-			if self.TextRect[0] < xpos < self.TextRect[0]+ self.TextRect[2] and self.TextRect[1] < ypos < self.TextRect[1]+ self.TextRect[3]:
-				if pygame.mouse.get_pressed()[0] and self.justplaced<=0:
-					self.Send({"action":"skip","gameid":self.gameid,"num":self.num})
-					self.stage = "card"
-					self.justplaced = 10
+	
+		if self.stage == "choose p race":
+			p_race_r = RectArray(100,250,300,200,210,0,len(self.p_races))
+			for i in range(len(self.p_races)):
+				(self.screen.blit(pygame.transform.scale(self.primary_races[self.p_races[i]],
+				[p_race_r.r_array[i].w,p_race_r.r_array[i].h]),[p_race_r.r_array[i].x,p_race_r.r_array[i].y]))
+			for i in range(len(self.p_races)):
+				if p_race_r.r_array[i].withinRect(xpos,ypos) and self.turn == True:
+					self.on_image = True
+					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+						self.Send({"action":"choose_p_race","p race":self.p_races[i],"gameid":self.gameid,"num":self.num})
+						self.justclicked = 10
+					
+		elif self.stage == "choose s race":
+			s_race_r = RectArray(100,250,300,200,210,0,len(self.s_races))
+			for i in range(len(self.s_races)):
+				(self.screen.blit(pygame.transform.scale(self.secondary_races[self.s_races[i]],
+				[s_race_r.r_array[i].w,s_race_r.r_array[i].h]),[s_race_r.r_array[i].x,s_race_r.r_array[i].y]))
+			for i in range(len(self.s_races)):
+				if s_race_r.r_array[i].withinRect(xpos,ypos) and self.turn == True:
+					self.on_image = True
+					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+						self.Send({"action":"choose_s_race","s race":self.s_races[i],"gameid":self.gameid,"num":self.num})
+						self.justclicked = 10
+			
+		#if in card phase check action and send data to server
+		elif self.stage == "card phase":
+			self.drawPlayerCards()
+			self.drawDecks()	
+			if self.turn == True:
+				if self.TextRect[0] < xpos < self.TextRect[0]+ self.TextRect[2] and self.TextRect[1] < ypos < self.TextRect[1]+ self.TextRect[3]:
+					self.on_image = True
+					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+						self.Send({"action":"cardplay","card":"skip", "gameid":self.gameid,"num":self.num})
+						self.justclicked = 10
+					else:
+						pygame.draw.rect(self.screen,[0,200,0],	self.TextRect)							
+						self.screen.blit(self.TextSurf, self.TextRect)
 				else:
-					pygame.draw.rect(self.screen,[0,200,0],	self.TextRect)
+					pygame.draw.rect(self.screen,[255,255,255],	self.TextRect)
 					self.screen.blit(self.TextSurf, self.TextRect)
-			else:
-				pygame.draw.rect(self.screen,[255,255,255],	self.TextRect)
-				self.screen.blit(self.TextSurf, self.TextRect)
 
-		self.drawPlayerCards()		
+		elif self.stage == "action phase":
+			self.drawPlayerCards()
+			self.drawDecks()
+			if self.turn == True:
+				if self.take_deck_pos.withinRect(xpos,ypos):
+					self.on_image = True
+					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+						self.Send({"action":"takecard","takenumber":self.players[self.num].card_pickup_number,"gameid":self.gameid,"num":self.num})
+						self.justclicked = 10
+					
+	
+		elif self.stage == "choose card":
+			self.drawPlayerCards()
+			self.drawDecks()	
+			if self.turn == True:
+				top_deck = RectArray(300,250,300,200,210,0,len(self.choosecards))
+				for i in range(len(self.choosecards)):
+					(self.screen.blit(pygame.transform.scale(self.cardIms[self.choosecards[i]],
+					[top_deck.r_array[i].w,top_deck.r_array[i].h]),[top_deck.r_array[i].x,top_deck.r_array[i].y]))			
+				for i in range(len(self.choosecards)):
+					if top_deck.r_array[i].withinRect(xpos,ypos):
+						self.on_image = True
+						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+							self.Send({"action":"cardchosen","card":self.choosecards[i],"gameid":self.gameid,"num":self.num})
+							self.justclicked = 10
 				
 		pygame.display.flip()
-		
-class Deck(object):
-
-	def __init__(self,number_cards):
-		self.deck = [i for i in range(1,number_cards) for _ in range(3)]
-		self.shuffleDeck()
-		
-	def shuffleDeck(self):
-		shuffle(self.deck)
-		
+				
 class Player(object):
 
 	def __init__(self):
@@ -139,6 +246,8 @@ class Player(object):
 		self.hand = []
 		self.card_pickup_number = 3
 		self.turn = False
+		self.primerace = None
+		self.secrace = None
 		
 	def increaseHandLimit(self,x):
 		self.hand_limit = self.hand_limit + x
@@ -154,7 +263,28 @@ class Player(object):
 		
 	def startTurn(self):
 		self.turn = True
-				
+		
+class Rect(object):
+	def __init__(self,x,y,h,w):
+		self.x = x
+		self.y = y
+		self.h = h
+		self.w = w
+		
+	def withinRect(self,xpos,ypos):
+		if self.x < xpos < self.x + self.w and self.y < ypos < self.y + self.h:
+			return True
+		else:
+			return False
+			
+		
+		
+class RectArray(object):
+	def __init__(self,x,y,h,w,x_trans,y_trans,number_rectangles):
+		self.r_array = []
+		for i in range(number_rectangles):
+			self.r_array.append(Rect(x+i*x_trans,y+i*y_trans,h,w))
+					
 g = BoardGame()
 while 1:
 	g.update()
