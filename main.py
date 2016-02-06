@@ -3,10 +3,14 @@ import math
 import hex
 import os
 from random import shuffle
+from PodSixNet.Connection import ConnectionListener, connection
+from time import sleep
 
-class Game(object):
+class Game(ConnectionListener):
 	
-	def __init__(self):
+	def __init__(self):	
+		self.clock=pygame.time.Clock()
+		
 		pygame.init()
 		
 		self.resl = pygame.display.Info()
@@ -28,6 +32,34 @@ class Game(object):
 		self.players[1].takeCard(self.take_deck)
 		self.players[2].takeCard(self.take_deck)
 		self.players[3].takeCard(self.take_deck)
+		
+		self.Connect()
+		self.gameid = None
+		self.num = None
+		
+		self.running = False
+		while not self.running:
+			self.Pump()
+			connection.Pump()
+			sleep(0.01)
+			
+		if self.num == 0:
+			self.turn = True
+		else:
+			self.turn = False
+			
+		self.justplaced = 10
+		
+	def Network_startgame(self,data):
+		self.running = True
+		self.num = data["player"]
+		self.gameid = data["gameid"]
+		
+	def Network_card_phase(self,data):
+		card = data["action"]
+		
+	def Network_yourturn(self,data):
+		self.turn = data["torf"]
 		
 	def initGraphics(self):
 		self.board = pygame.image.load("BGHackathon/BOARD.jpg")
@@ -55,6 +87,12 @@ class Game(object):
 		
 	def update(self):
 	
+		self.justplaced-=1
+		
+		connection.Pump()
+		self.Pump()
+	
+		self.clock.tick(60)
 		self.screen.fill([255,255,255])
 		self.drawBoard()
 		
@@ -66,22 +104,18 @@ class Game(object):
 		if xpos < 200:
 			self.screen.blit(self.cardIms[self.players[0].hand[0]],[200,100])	
 
-		if self.stage == "card":
+		if self.stage == "card" and self.turn == True:
 			if self.TextRect[0] < xpos < self.TextRect[0]+ self.TextRect[2] and self.TextRect[1] < ypos < self.TextRect[1]+ self.TextRect[3]:
-				if pygame.mouse.get_pressed()[0]:
-					self.stage = "action"
+				if pygame.mouse.get_pressed()[0] and self.justplaced<=0:
+					self.Send({"action":"skip","gameid":self.gameid,"num":self.num})
+					self.stage = "card"
+					self.justplaced = 10
 				else:
 					pygame.draw.rect(self.screen,[0,200,0],	self.TextRect)
 					self.screen.blit(self.TextSurf, self.TextRect)
 			else:
 				pygame.draw.rect(self.screen,[255,255,255],	self.TextRect)
 				self.screen.blit(self.TextSurf, self.TextRect)
-				
-"""		if self.stage == "action"
-			if isValid(hexagon, xpos, ypos)
-				if pygame.mouse.get_pressed()[0]:
-					self.stage = "card"
-"""			
 
 		self.drawPlayerCards()		
 				
