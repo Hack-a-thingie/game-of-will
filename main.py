@@ -16,10 +16,11 @@ class Game(object):
 		self.screen.fill(background_colour)
 		
 		self.initGraphics()		
-		self.drawBoard()
 		
 		self.take_deck = Deck(10)
 		self.discard_deck = Deck(0)
+		
+		self.stage = "card"
 		
 		self.players = [Player() for i in range(4)]
 
@@ -30,10 +31,15 @@ class Game(object):
 		
 	def initGraphics(self):
 		self.board = pygame.image.load("BGHackathon/BOARD.jpg")
+		
 		self.cardIms = []
 		for i in os.listdir("BGHackathon"):
 			if i.startswith("CARD"):
 				self.cardIms.append(pygame.image.load("BGHackathon/"+i))
+				
+		self.largeText = pygame.font.Font('freesansbold.ttf',40)
+		self.TextSurf, self.TextRect = self.text_objects("Skip Card Phase?", self.largeText)
+		self.TextRect.center = (self.resl.current_w/2,self.resl.current_h/2)
 				
 	def drawBoard(self):
 		self.screen.blit(pygame.transform.scale(self.board, (self.resl.current_w-400, self.resl.current_h-200)), [200,100])
@@ -43,8 +49,15 @@ class Game(object):
 			for j in range(len(self.players[i].hand)):
 				self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (150,200)),(5+j*10,5))
 		
+	def text_objects(self, text, font):
+		textSurface = font.render(text, True, [0,0,0])
+		return textSurface, textSurface.get_rect()
 		
 	def update(self):
+	
+		self.screen.fill([255,255,255])
+		self.drawBoard()
+		
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				exit()
@@ -52,7 +65,24 @@ class Game(object):
 		xpos, ypos = pygame.mouse.get_pos()
 		if xpos < 200:
 			self.screen.blit(self.cardIms[self.players[0].hand[0]],[200,100])	
-			
+
+		if self.stage == "card":
+			if self.TextRect[0] < xpos < self.TextRect[0]+ self.TextRect[2] and self.TextRect[1] < ypos < self.TextRect[1]+ self.TextRect[3]:
+				if pygame.mouse.get_pressed()[0]:
+					self.stage = "action"
+				else:
+					pygame.draw.rect(self.screen,[0,200,0],	self.TextRect)
+					self.screen.blit(self.TextSurf, self.TextRect)
+			else:
+				pygame.draw.rect(self.screen,[255,255,255],	self.TextRect)
+				self.screen.blit(self.TextSurf, self.TextRect)
+				
+"""		if self.stage == "action"
+			if isValid(hexagon, xpos, ypos)
+				if pygame.mouse.get_pressed()[0]:
+					self.stage = "card"
+"""			
+
 		self.drawPlayerCards()		
 				
 		pygame.display.flip()
