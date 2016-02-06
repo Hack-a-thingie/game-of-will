@@ -6,7 +6,7 @@ from random import shuffle
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
 
-class Game(ConnectionListener):
+class BoardGame(ConnectionListener):
 	
 	def __init__(self):	
 		self.clock=pygame.time.Clock()
@@ -51,11 +51,13 @@ class Game(ConnectionListener):
 		self.justplaced = 10
 		
 	def Network_startgame(self,data):
+		print "I started Running"
 		self.running = True
 		self.num = data["player"]
+		print data["player"]
 		self.gameid = data["gameid"]
 		
-	def Network_card_phase(self,data):
+	def Network_place(self,data):
 		card = data["action"]
 		
 	def Network_yourturn(self,data):
@@ -153,7 +155,7 @@ class Player(object):
 	def startTurn(self):
 		self.turn = True
 				
-g = Game()
+g = BoardGame()
 while 1:
 	g.update()
 				

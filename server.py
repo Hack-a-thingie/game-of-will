@@ -5,16 +5,14 @@ from time import sleep
 class ClientChannel(PodSixNet.Channel.Channel):
 	def Network(self,data):
 		print data
-		
-	def Network_card_phase(self,data):
 		card = data["action"]
 		num = data["num"]
 		self.gameid = data["gameid"]
-		self._server.skipCardPhase(card,num,gameid)
+		self._server.skipCardPhase(card,num,self.gameid) 
 		
-class BGServer(PodSixNet.Server.Server):
-	def __init__(self,*args,**kwargs):
-		PodSixNet.Server.Server.__init__(self,*args,**kwargs)
+class BoardServer(PodSixNet.Server.Server):
+	def __init__(self, *args, **kwargs):
+		PodSixNet.Server.Server.__init__(self, *args, **kwargs)
 		self.games = []
 		self.queue = None
 		self.currentIndex = 0
@@ -45,29 +43,23 @@ class Game:
 	def __init__(self, player0, currentIndex):
 	
 		self.turn = 0
-		self.player0 = player0
-	
-		self.player1 = None
-	
-		self.stage = "card"
-	
+		self.player0 = player0	
+		self.player1 = None	
+		self.stage = "card"	
 		self.gameid = currentIndex
 		
-	def skipCardPhase(self,skip,num):
-		print "Ive been called"
+	def skipCardPhase(self,card,num):
 		if num == self.turn:
 			self.turn = 0 if self.turn else 1
 			self.player1.Send({"action":"yourturn","torf":True if self.turn == 1 else False})
 			self.player0.Send({"action":"yourturn","torf":True if self.turn == 0 else False})
+			
 			if card == "skip":
 				pass
-			self.player0.Send(data)
-			self.player1.Send(data)
-		 
-	
+					
 		
 print "STARTING SERVER ON LOCALHOST"
-bgServe = BGServer()
+bgServe = BoardServer()
 while True:
 	bgServe.Pump()
 	sleep(0.01)
