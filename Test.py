@@ -1,10 +1,11 @@
 import math
 import pygame
+import time
 
 # Initializes the pygame library
 pygame.init()
 
-# Color definitionu
+# Color definition
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
@@ -57,8 +58,8 @@ class Hexgrid(object):
             self.ksplit=k.split("hex")[1]
             self.col=self.ksplit.split('_')[0]
             self.row=self.ksplit.split('_')[1]
-
-
+        
+            
             if int(self.row) == 10 and int(self.col)%2==1:
                 pass
             else:
@@ -171,3 +172,25 @@ class Hexgrid(object):
                         dist=self.hex_distance(self.hexdict[k],self.hexdict[myname])
         return dist
 
+
+playernum=1
+pygame.init()
+resl = pygame.display.Info()
+screen = pygame.display.set_mode((resl.current_w, resl.current_h))
+hexgrid1=Hexgrid(50,100,100,screen)
+clock=pygame.time.Clock()
+while 1:
+
+    clock.tick(60)
+    screen.fill(BLACK)
+    hexgrid1.draw_hexgrid()
+    pygame.display.flip()
+
+    xpos, ypos = pygame.mouse.get_pos()
+    if pygame.mouse.get_pressed()[0]:
+        hexgrid1.change_owner(playernum,xpos, ypos)
+    for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				exit()
+    print hexgrid1.occupied(xpos,ypos)
+    print hexgrid1.close_neighbour(playernum,xpos,ypos)
