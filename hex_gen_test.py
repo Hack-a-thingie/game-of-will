@@ -12,25 +12,52 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
 
-class Hexagon(object):
+class Hexagon:
 
     radius = 50
+    offset=100
 
+    def __init__(self, col, row):
+        self.col = col
+        self.row = row
+        self.x_pixel=self.offset+3/2*self.radius*self.col
+        self.y_pixel=self.offset+math.sqrt(3)/2*self.radius*self.row
+
+    def axial(self):
+        self.hex_z=self.row-((self.col-self.col%2))/2
+        self.hex_x=self.col
+
+    def cube(self):
+        self.cube_z=self.row-((self.col-self.col%2))/2
+        self.cube_x=self.col
+        self.cube_y=-self.cube_x-self.cube_z
+
+<<<<<<< HEAD
     def __init__(self, col, row):
         self.x = row
         self.y = col
 
+=======
+>>>>>>> 0d3bac41a1fab61e98e5e2e23fba1c7030f8dfd5
 
     def vertices(self):
 
         for ind in range(6):
             angle_deg = 60 * ind
+<<<<<<< HEAD
             angle_rad = math.pi / 180 * angle_deg
             self.point_x = self.x_pixel + self.radius * math.cos(angle_rad)
             self.point_y = self.y_pixel + self.radius * math.sin(angle_rad)
+=======
+            angle_rad e= math.pi / 180 * angle_deg
+            point_x = self.x_pixel + self.radius * math.cos(angle_rad)
+            point_y = self.y_pixel + self.radius * math.sin(angle_rad)
+>>>>>>> 0d3bac41a1fab61e98e5e2e23fba1c7030f8dfd5
             self.vertex
 
-
+    def hex_2_pix(self):
+        self.y_pixel = self.offset + 3/2*self.radius*self.x
+        self.x_pixel = self.offset + math.sqrt(3)*self.radius*self.x
 
 # Set the height and width of the screen
 scr_height = 1000
