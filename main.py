@@ -1,11 +1,11 @@
-#wills comment
 import pygame
 import math
 import os
+import hex
+#from hex import Hexagon, Hexgrid
 from random import shuffle
 from PodSixNet.Connection import ConnectionListener, connection
 from time import sleep
-#This is Mark again
 class BoardGame(ConnectionListener):
 	
 	def __init__(self):				
@@ -15,7 +15,7 @@ class BoardGame(ConnectionListener):
 		background_colour = (255,255,255)	
 		
 		#load images
-		self.initGraphics()	
+		self.initGraphics()
 	
 		#init clock
 		self.clock=pygame.time.Clock()	
@@ -67,6 +67,8 @@ class BoardGame(ConnectionListener):
 		pygame.display.set_caption("Board Game")
 		self.screen.fill(background_colour)
 		
+		self.hexgrd = hex.Hexgrid(round((self.resl.current_w-400)/30),350,150,self.screen)
+		
 		#initialise players
 		self.players = []
 		for i in range(self.player_num):
@@ -105,7 +107,7 @@ class BoardGame(ConnectionListener):
 		self.playingcard = data["card"]
 		self.stage = data["stage"]
 		
-	def Network_placehex(self,data):
+#	def Network_placehex(self,data):
 		#result of played card action
 #		self.game.board(data["hex_pos"]).placeplayer(data["player"])
 #		self.stage = data["stage"]
@@ -149,9 +151,6 @@ class BoardGame(ConnectionListener):
 		
 	def initGraphics(self):
 		#load images from folder
-
-		#load board
-		self.board = pygame.image.load("BGHackathon/BOARD.jpg")
 		
 		#load playable cards and races
 		self.cardIms = []
@@ -175,7 +174,7 @@ class BoardGame(ConnectionListener):
 				
 	def drawBoard(self):
 		#draw board at screen resolution
-		self.screen.blit(pygame.transform.scale(self.board, (self.resl.current_w-400, self.resl.current_h-200)), [200,100])
+		self.hexgrd.draw_hexgrid()
 		
 	def drawPlayerCards(self,xpos,ypos):
 
@@ -306,10 +305,10 @@ class BoardGame(ConnectionListener):
 		elif self.stage == "action phase":
 			if self.turn == True:
 				if self.take_deck_pos.withinRect(xpos,ypos):
-					self.on_image = True
 					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 						self.Send({"action":"takecard","gameid":self.gameid,"num":self.num})
 						self.justclicked = 10
+						
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
 			
@@ -331,6 +330,7 @@ class BoardGame(ConnectionListener):
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
 				
+		print self.hexgrd.hex_round(xpos,ypos)
 		pygame.display.flip()
 			
 class Player(object):
