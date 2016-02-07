@@ -105,6 +105,12 @@ class BoardGame(ConnectionListener):
 		self.playingcard = data["card"]
 		self.stage = data["stage"]
 		
+	def Network_placehex(self,data):
+		#result of played card action
+#		self.game.board(data["hex_pos"]).placeplayer(data["player"])
+#		self.stage = data["stage"]
+#		self.turn = 1 if data["turn"] == self.num else 0
+		
 	def Network_losecard(self,data):
 		#result of played card action
 		self.players[data["player"]].hand.remove(data["card"])
@@ -264,6 +270,7 @@ class BoardGame(ConnectionListener):
 				else:
 					pygame.draw.rect(self.screen,[255,255,255],	self.TextRect)
 					self.screen.blit(self.TextSurf, self.TextRect)
+					
 				if not len(self.players[self.num].hand) == 0:
 					close_rect = self.players[self.num].hand_rect_array.whichRect(xpos,ypos)
 					if close_rect == 100:
@@ -276,6 +283,8 @@ class BoardGame(ConnectionListener):
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
 			
+			
+		#NEEDS TO BE GENERALISED
 		elif self.stage == "card action phase":
 			if self.turn == True:
 				if self.playingcard == 3:
@@ -288,7 +297,7 @@ class BoardGame(ConnectionListener):
 						else:
 							self.on_image = True
 							if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
-								self.Send({"action":"cardaction","card":self.playingcard,"removeplayer":i,"removecard":self.players[i].hand[close_rect],"gameid":self.gameid,"num":self.num})
+								self.Send({"action":"removeplayercard","card":self.playingcard,"removeplayer":i,"removecard":self.players[i].hand[close_rect],"gameid":self.gameid,"num":self.num})
 								self.justclicked = 10
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
