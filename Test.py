@@ -7,16 +7,23 @@ pygame.init()
 
 # Color definition
 BLACK = (0, 0, 0)
+BLACKA = (0, 0, 0, 0.3)
 WHITE = (255, 255, 255)
+WHITEA = (255, 255, 255, 0.3)
 BLUE = (0, 0, 255)
+BLUEA = (0, 0, 255, 0.3)
 GREEN = (0, 255, 0)
+GREENA = (0, 255, 0, 0.3)
 RED = (255, 0, 0)
+REDA = (255, 0, 0, 0.3)
+YELLOWA=(255, 255, 0, 0.3)
 
 class Hexagon(object):
 
     def __init__(self, col, row, radius, offset_x,offset_y):
         self.player=100
         self.colour=BLUE
+        self.transcolour=WHITEA
         self.radius = radius
     	self.offsetx = offset_x
     	self.offsety = offset_y
@@ -50,6 +57,7 @@ class Hexgrid(object):
     def __init__(self,size,offset_x,offset_y,screen):
         self.hexlistname= ["hex"+ str(x) + '_' + str(y) for x in range(15) for y in range(11)]
         self.hexdict={}
+        self.playercolours=[GREENA, YELLOWA, REDA, BLACKA]
         self.size=size
     	self.offsetx=offset_x
     	self.offsety=offset_y
@@ -70,6 +78,7 @@ class Hexgrid(object):
             self.hexdict[a].vertices()
             self.plist=self.hexdict[a].vertices_points
             pygame.draw.polygon(self.screen, self.hexdict[a].colour, self.plist, 0)
+            #pygame.draw.polygon(self.screen, self.hexdict[a].transcolour, self.plist, 0)
             pygame.draw.aalines(self.screen, BLACK, True, self.plist, True)
 
     def cube2hex(self,cube_coord):
@@ -128,6 +137,8 @@ class Hexgrid(object):
     def hex_distance(self, hexa, hexb):
         return self.hex_length(self.hex_subtract(hexa, hexb))
 
+
+
     def occupied_by(self,mouse_x,mouse_y):
         self.hex_round(mouse_x,mouse_y)
         self.hex_cube=self.cube_round(self.hex2cube(self.pixel_to_hex(mouse_x,mouse_y)[0],self.pixel_to_hex(mouse_x,mouse_y)[1]))
@@ -151,8 +162,20 @@ class Hexgrid(object):
         for k in self.hexdict:
             if self.hexdict[k].cube_xyz == self.hex_cube:
                 self.hexdict[k].player=playernum
-                self.hexdict[k].colour=GREEN
+                self.hexdict[k].colour=self.playercolours[playernum]
 
+    def num_terr(self,mouse_x,mouse_y):
+        terrnum=0
+        self.hex_round(mouse_x,mouse_y)
+        self.hex_cube=self.cube_round(self.hex2cube(self.pixel_to_hex(mouse_x,mouse_y)[0],self.pixel_to_hex(mouse_x,mouse_y)[1]))
+        for k in self.hexdict:
+            if self.hexdict[k].cube_xyz == self.hex_cube:
+                for j in self.hexdict:
+                    if self.hexdict[j].player == 100:
+                        pass
+                    elif self.hexdict[j].player == self.hexdict[k].player and self.hex_distance(self.hexdict[k],self.hexdict[j]) < 2:
+                        terrnum += 1
+        return terrnum-1
 
     def close_neighbour(self, playernum, mouse_x, mouse_y):
         dist=20
@@ -172,8 +195,7 @@ class Hexgrid(object):
                         dist=self.hex_distance(self.hexdict[k],self.hexdict[myname])
         return dist
 
-
-playernum=1
+playernum=3
 pygame.init()
 resl = pygame.display.Info()
 screen = pygame.display.set_mode((resl.current_w, resl.current_h))
@@ -182,7 +204,7 @@ clock=pygame.time.Clock()
 while 1:
 
     clock.tick(60)
-    screen.fill(BLACK)
+    screen.fill(WHITE)
     hexgrid1.draw_hexgrid()
     pygame.display.flip()
 
@@ -192,5 +214,6 @@ while 1:
     for event in pygame.event.get():
 			if event.type == pygame.QUIT:
 				exit()
-    print hexgrid1.occupied(xpos,ypos)
-    print hexgrid1.close_neighbour(playernum,xpos,ypos)
+    print hexgrid1.num_terr(xpos,ypos)
+    #print hexgrid1.occupied(xpos,ypos)
+    #print hexgrid1.close_neighbour(playernum,xpos,ypos)
