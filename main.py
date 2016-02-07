@@ -128,7 +128,7 @@ class BoardGame(ConnectionListener):
 		my_hand = RectArray(5,5,200,150,0,100,len(self.players[self.num].hand))
 		for j in range(len(self.players[self.num].hand)):
 			self.screen.blit(pygame.transform.scale(self.cardIms[self.players[self.num].hand[j]], (my_hand.r_array[j].w,my_hand.r_array[j].h)),(my_hand.r_array[j].x,my_hand.r_array[j].y))
-		for i in range(self.num+1,self.num+self.player_num+1):
+		for i in range(self.num+1,self.num+self.player_num):
 				their_hand = RectArray(self.resl.current_w-205,5+300*(i-1-self.num),200,150,0,40,len(self.players[i%self.player_num].hand))
 				for j in range(len(self.players[i%self.player_num].hand)):
 					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i%self.player_num].hand[j]], (their_hand.r_array[j].w,their_hand.r_array[j].h)),(their_hand.r_array[j].x,their_hand.r_array[j].y))
