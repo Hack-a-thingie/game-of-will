@@ -11,11 +11,12 @@ BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
+class hexgrid(object):
 
-class Hexagon:
+class Hexagon(object):
 
     radius = 50
-    offset=100
+    offset = 100
 
     def __init__(self, col, row):
         self.col = col
@@ -56,6 +57,21 @@ def hex_point(center, size):  # creates corners of an hexagon
         vertex.append([point_x, point_y])
     return vertex
 
+
+class hexgrid(object):
+
+    def __init__(self):
+        self.hexlistname= ["hex"+ str(x) + '_' + str(y) for x in range(15) for y in range(10)]
+        self.hexdict={}
+        for k in self.hexlistname:
+            self.ksplit=k.split("hex")[1]
+            self.col=self.ksplit.split('_')[0]
+            self.row=self.ksplit.split('_')[1]
+            self.hexdict[k]=Hexagon(int(self.col),int(self.row))
+
+    def draw_hexgrid(self):
+        for a in hexgrid1.hexdict:
+            pass
 
 def cart2cube(col, row):
     cube = []
