@@ -32,28 +32,17 @@ class Hexagon:
         self.cube_x=self.col
         self.cube_y=-self.cube_x-self.cube_z
 
-<<<<<<< HEAD
-    def __init__(self, col, row):
-        self.x = row
-        self.y = col
 
-=======
->>>>>>> 0d3bac41a1fab61e98e5e2e23fba1c7030f8dfd5
 
     def vertices(self):
-
+        self.vertices_points = []
         for ind in range(6):
-            angle_deg = 60 * ind
-<<<<<<< HEAD
-            angle_rad = math.pi / 180 * angle_deg
-            self.point_x = self.x_pixel + self.radius * math.cos(angle_rad)
-            self.point_y = self.y_pixel + self.radius * math.sin(angle_rad)
-=======
-            angle_rad e= math.pi / 180 * angle_deg
-            point_x = self.x_pixel + self.radius * math.cos(angle_rad)
-            point_y = self.y_pixel + self.radius * math.sin(angle_rad)
->>>>>>> 0d3bac41a1fab61e98e5e2e23fba1c7030f8dfd5
-            self.vertex
+            angle_deg = 60*ind
+            angle_rad = math.pi/180*angle_deg
+            self.vertex_x = self.x_pixel+self.radius*math.cos(angle_rad)
+            self.vertex_y = self.y_pixel+self.radius*math.sin(angle_rad)
+            self.vertices_points.append([self.vertex_x, self.vertex_y])
+
 
     def hex_2_pix(self):
         self.y_pixel = self.offset + 3/2*self.radius*self.x
