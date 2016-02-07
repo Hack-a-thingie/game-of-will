@@ -10,29 +10,22 @@ class BoardGame(ConnectionListener):
 	def __init__(self):	
 	
 		self.on_image = 0
-	
-		#init clock
-		self.clock=pygame.time.Clock()
 		
-		#init pygame, find screen resolution, define scree
-		pygame.init()	
+		pygame.init()
 		self.resl = pygame.display.Info()
-		background_colour = (255,255,255)
-		self.screen = pygame.display.set_mode((self.resl.current_w, self.resl.current_h))
-		pygame.display.set_caption("Board Game")
-		self.screen.fill(background_colour)
+		background_colour = (255,255,255)	
 		
 		#load images
-		self.initGraphics()		
+		self.initGraphics()	
+	
+		#init clock
+		self.clock=pygame.time.Clock()	
 		
 		self.take_deck_pos = Rect(10,400,300,200)
 		self.discard_deck_pos = Rect(250,400,300,200)
 		
 		#define stages
 		self.stage = None
-		
-		#initialise players
-		self.players = [Player() for i in range(2)]
 
 		#connect to network		
 		self.Connect()
@@ -52,8 +45,20 @@ class BoardGame(ConnectionListener):
 		else:
 			self.turn = False
 			
+		#init pygame, find screen resolution, define scree
+		self.screen = pygame.display.set_mode((self.resl.current_w, self.resl.current_h))
+		pygame.display.set_caption("Board Game")
+		self.screen.fill(background_colour)
+		
+		self.players = [Player() for i in range(self.player_num)]
+			
 		#delay to prevent multiple actions before server responds
 		self.justclicked = 10
+		
+	def Network_setgame(self,data):
+		player_num = input("How many players?:")
+		self.Send({"action":"setgame","player_num":player_num})
+		print "searching for other players..."
 		
 	def Network_startgame(self,data):
 		#recieve server data on game commencement
@@ -63,6 +68,7 @@ class BoardGame(ConnectionListener):
 		self.stage = data["stage"]
 		self.p_races = data["p_races"]
 		self.s_races = data["s_races"]
+		self.player_num = data["player_num"]
 		
 		#self.take_deck = data["takedeck"]
 		#self.discard_deck = data["discarddeck"]
@@ -72,13 +78,13 @@ class BoardGame(ConnectionListener):
 		self.stage = data["stage"]
 		
 	def Network_pracechoose(self,data):
-		self.turn = data["torf"]
+		self.turn = 1 if data["turn"] == self.num else 0
 		self.players[data["player"]].primerace = data["prace"]
 		self.p_races.remove(data["prace"])
 		self.stage = data["stage"]
 		
 	def Network_sracechoose(self,data):
-		self.turn = data["torf"]
+		self.turn = 1 if data["turn"] == self.num else 0
 		self.players[data["player"]].secrace = data["srace"]
 		self.s_races.remove(data["srace"])
 		self.stage = data["stage"]
@@ -88,7 +94,7 @@ class BoardGame(ConnectionListener):
 		self.stage = data["stage"]
 		
 	def Network_cardgain(self,data):
-		self.turn = data["torf"]
+		self.turn = 1 if data["turn"] == self.num else 0
 		self.players[data["player"]].hand.append(data["card"])
 		self.stage = data["stage"]
 		
@@ -119,15 +125,13 @@ class BoardGame(ConnectionListener):
 		
 	def drawPlayerCards(self):
 		#draw players cards
-		for i in range(len(self.players)):
-			if i == self.num:
-				my_hand = RectArray(5,5,200,150,0,100,len(self.players[i].hand))
-				for j in range(len(self.players[i].hand)):
-					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (my_hand.r_array[j].w,my_hand.r_array[j].h)),(my_hand.r_array[j].x,my_hand.r_array[j].y))
-			else:
-				their_hand = RectArray(self.resl.current_w-205,5,200,150,0,40,len(self.players[i].hand))
-				for j in range(len(self.players[i].hand)):
-					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i].hand[j]], (their_hand.r_array[j].w,their_hand.r_array[j].h)),(their_hand.r_array[j].x,their_hand.r_array[j].y))
+		my_hand = RectArray(5,5,200,150,0,100,len(self.players[self.num].hand))
+		for j in range(len(self.players[self.num].hand)):
+			self.screen.blit(pygame.transform.scale(self.cardIms[self.players[self.num].hand[j]], (my_hand.r_array[j].w,my_hand.r_array[j].h)),(my_hand.r_array[j].x,my_hand.r_array[j].y))
+		for i in range(self.num+1,self.num+self.player_num+1):
+				their_hand = RectArray(self.resl.current_w-205,5+300*(i-1-self.num),200,150,0,40,len(self.players[i%self.player_num].hand))
+				for j in range(len(self.players[i%self.player_num].hand)):
+					self.screen.blit(pygame.transform.scale(self.cardIms[self.players[i%self.player_num].hand[j]], (their_hand.r_array[j].w,their_hand.r_array[j].h)),(their_hand.r_array[j].x,their_hand.r_array[j].y))
 		
 	def drawDecks(self):
 		self.screen.blit(pygame.transform.scale(self.secondary_races[1], [self.take_deck_pos.w,self.take_deck_pos.h]),[self.take_deck_pos.x,self.take_deck_pos.y])

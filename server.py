@@ -7,6 +7,10 @@ from time import sleep
 class ClientChannel(PodSixNet.Channel.Channel):
 	def Network(self,data):
 		print data
+	
+	def Network_setgame(self,data):
+		player_num = data["player_num"]
+		self._server.setGame(player_num)
 
 	def Network_cardplay(self,data):
 		card = data["card"]
@@ -44,6 +48,7 @@ class BoardServer(PodSixNet.Server.Server):
 		self.games = []
 		self.queue = None
 		self.currentIndex = 0
+		self.currentPlayers = 0
 
 	channelClass = ClientChannel
 	
@@ -51,22 +56,34 @@ class BoardServer(PodSixNet.Server.Server):
 		print 'new connection:', channel
 		
 		if self.queue == None:
+			self.unset = 1
 			self.currentIndex+=1
+			self.currentPlayers+=1
 			channel.gameid = self.currentIndex
-			self.queue = Game(channel, self.currentIndex)
+			channel.Send({"action":"setgame"})
+			self.first_channel = channel
+			while self.unset:
+				self.Pump()
+				sleep(0.01)
 		else:
 			channel.gameid = self.currentIndex
-			self.queue.player1 = channel
+			self.queue.players.append(channel)
+			self.currentPlayers+=1
 			
-			p_races = random.sample(range(6), 5)
-			s_races = random.sample(range(6), 5)
+			if self.currentPlayers == self.queue.player_num:
+				p_races = random.sample(range(6), self.queue.player_num+1)
+				s_races = random.sample(range(6), self.queue.player_num+1)
 			
-			self.queue.player0.Send({"action":"startgame","player":0,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races})
-			self.queue.player1.Send({"action":"startgame","player":1,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races})
-			#self.queue.player0.Send({"action":"startgame","player":0,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races,"takedeck":self.queue.take_deck,"discarddeck":self.queue.discard_deck})
-			#self.queue.player1.Send({"action":"startgame","player":1,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races,"takedeck":self.queue.take_deck,"discarddeck":self.queue.discard_deck})
-			self.games.append(self.queue)
-			self.queue = None
+				for i in range(self.queue.player_num):
+					self.queue.players[i].Send({"action":"startgame","player_num":self.queue.player_num,"player":i,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races})
+					
+				self.games.append(self.queue)
+				self.queue = None
+			
+		
+	def setGame(self,player_num):
+		self.queue = Game(self.first_channel, self.currentIndex, player_num)
+		self.unset = 0
 			
 	def cardPlay(self, card, num, gameid):
 		game = [a for a in self.games if a.gameid==gameid]
@@ -94,45 +111,49 @@ class BoardServer(PodSixNet.Server.Server):
 			game[0].cardChosen(card,num)
 		
 class Game:
-	def __init__(self, player0, currentIndex):
+	def __init__(self, player0, currentIndex, player_num):
 	
 		self.turn = 0
-		self.player0 = player0	
-		self.player1 = None	
+		self.player_num = player_num
+		self.players = []
+		self.players.append(player0)
 		self.stage = "card"	
 		self.gameid = currentIndex
-		
+				
 		self.take_deck = Deck(10)
 		self.discard_deck = Deck(0)
-		print "done init"
+
 		
 	def cardPlay(self,card,num):
 		if num == self.turn:
-			self.player1.Send({"action":"cardplay","stage":"action phase"})
-			self.player0.Send({"action":"cardplay","stage":"action phase"})
+			for i in range(self.player_num):
+				self.players[i].Send({"action":"cardplay","stage":"action phase"})
 				
 	def pickPRace(self, p_race, num):
 		if num == self.turn:
-			self.turn = 0 if self.turn else 1
-			self.player1.Send({"action":"pracechoose","stage":"choose s race" if num else "choose p race","player":num,"prace":p_race,"torf":True if self.turn == 1 else False})
-			self.player0.Send({"action":"pracechoose","stage":"choose s race" if num else "choose p race","player":num,"prace":p_race,"torf":True if self.turn == 0 else False})
+			self.turn += 1
+			for i in range(self.player_num):
+				self.players[i].Send({"action":"pracechoose","stage":"choose p race" if self.turn<self.player_num else "choose s race","player":num,"prace":p_race,"turn":self.turn%self.player_num})
+			self.turn = self.turn%self.player_num
 
 	def pickSRace(self, s_race, num):
 		if num == self.turn:
-			self.turn = 0 if self.turn else 1
-			self.player1.Send({"action":"sracechoose","stage":"card phase" if num else "choose s race","player":num,"srace":s_race,"torf":True if self.turn == 1 else False})
-			self.player0.Send({"action":"sracechoose","stage":"card phase" if num else "choose s race","player":num,"srace":s_race,"torf":True if self.turn == 0 else False})
+			self.turn += 1
+			for i in range(self.player_num):
+				self.players[i].Send({"action":"sracechoose","stage":"choose s race" if self.turn<self.player_num else "card phase","player":num,"srace":s_race,"turn":self.turn%self.player_num})
+			self.turn = self.turn%self.player_num
 
 	def takeCard(self,takenumber,num):
 		if num == self.turn:
-			self.player1.Send({"action":"takecard","cards":self.take_deck.deck[:takenumber],"stage":"choose card"})
-			self.player0.Send({"action":"takecard","cards":self.take_deck.deck[:takenumber],"stage":"choose card"})
-		
+			for i in range(self.player_num):
+				self.players[i].Send({"action":"takecard","cards":self.take_deck.deck[:takenumber],"stage":"choose card"})
+			
 	def cardChosen(self,card,num):
 		if num == self.turn:
-			self.turn = 0 if self.turn else 1
-			self.player1.Send({"action":"cardgain","card":card,"player":num,"stage":"card phase","torf":True if self.turn == 1 else False})
-			self.player0.Send({"action":"cardgain","card":card,"player":num,"stage":"card phase","torf":True if self.turn == 0 else False})	
+			self.turn += 1
+			for i in range(self.player_num):
+				self.players[i].Send({"action":"cardgain","card":card,"player":num,"stage":"card phase","turn":self.turn%self.player_num})
+			self.turn = self.turn%self.player_num	
 
 class Deck(object):
 
