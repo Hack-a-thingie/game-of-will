@@ -16,44 +16,19 @@ class Hexagon(object):
 
     radius = 50
 
-    def __init__(self, grid_x, grid_y):
-        self.x = grid_x
-        self.y = grid_y
+    def __init__(self, col, row):
+        self.x = row
+        self.y = col
+
 
     def vertices(self):
 
         for ind in range(6):
             angle_deg = 60 * ind
             angle_rad = math.pi / 180 * angle_deg
-            point_x = self.x_pixel + self.radius * math.cos(angle_rad)
-            point_y = self.y_pixel + self.radius * math.sin(angle_rad)
+            self.point_x = self.x_pixel + self.radius * math.cos(angle_rad)
+            self.point_y = self.y_pixel + self.radius * math.sin(angle_rad)
             self.vertex
-
-
-
-def hex_point(center, size):  # creates corners of an hexagon
-    vertex = []
-    for ind in range(6):
-        angle_deg = 60 * ind
-        angle_rad = math.pi / 180 * angle_deg
-        point_x = center[0] + size * math.cos(angle_rad)
-        point_y = center[1] + size * math.sin(angle_rad)
-        vertex.append([point_x, point_y])
-    return vertex
-
-
-def cart2cube(col, row):
-    cube = []
-    # convert odd-r offset to cube
-    x = col - (row - (row % 1)) / 2
-    z = row
-    y = -x - z
-    cube.append([x, y, z])
-    return cube
-
-
-# def cube2hex()
-
 
 
 
