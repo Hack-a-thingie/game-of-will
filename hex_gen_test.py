@@ -12,24 +12,39 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 
 
-class Hexagon(object):
+class Hexagon:
 
     radius = 50
+    offset=100
 
-    def __init__(self, grid_x, grid_y):
-        self.x = grid_x
-        self.y = grid_y
+    def __init__(self, col, row):
+        self.col = col
+        self.row = row
+        self.x_pixel=self.offset+3/2*self.radius*self.col
+        self.y_pixel=self.offset+math.sqrt(3)/2*self.radius*self.row
+
+    def axial(self):
+        self.hex_z=self.row-((self.col-self.col%2))/2
+        self.hex_x=self.col
+
+    def cube(self):
+        self.cube_z=self.row-((self.col-self.col%2))/2
+        self.cube_x=self.col
+        self.cube_y=-self.cube_x-self.cube_z
+
 
     def vertices(self):
 
         for ind in range(6):
             angle_deg = 60 * ind
-            angle_rad = math.pi / 180 * angle_deg
+            angle_rad e= math.pi / 180 * angle_deg
             point_x = self.x_pixel + self.radius * math.cos(angle_rad)
             point_y = self.y_pixel + self.radius * math.sin(angle_rad)
             self.vertex
 
-
+    def hex_2_pix(self):
+        self.y_pixel = self.offset + 3/2*self.radius*self.x
+        self.x_pixel = self.offset + math.sqrt(3)*self.radius*self.x
 
 def hex_point(center, size):  # creates corners of an hexagon
     vertex = []
