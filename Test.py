@@ -44,4 +44,9 @@ class hexgrid(object):
     def draw_hexgrid(self):
         for a in hexgrid1.hexdict:
 
+def pixel_to_hex(x, y):
+    q = x * 2/3 / 50
+    r = (-x / 3 + sqrt(3)/3 * y) / 50
+    return hex_round(Hex(q, r))
+
 
