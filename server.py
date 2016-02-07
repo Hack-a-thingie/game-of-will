@@ -41,6 +41,14 @@ class ClientChannel(PodSixNet.Channel.Channel):
 		num = data["num"]
 		self.gameid = data["gameid"]
 		self._server.cardChosen(discards,card,num,self.gameid)
+	
+	def Network_cardaction(self,data):
+		removecard = data["removecard"]
+		removeplayer = data["removeplayer"]
+		card = data["card"]
+		num = data["num"]
+		self.gameid = data["gameid"]
+		self._server.cardAction(removecard,removeplayer,card,num,self.gameid)
 		
 class BoardServer(PodSixNet.Server.Server):
 	def __init__(self, *args, **kwargs):
@@ -79,8 +87,13 @@ class BoardServer(PodSixNet.Server.Server):
 					
 				self.games.append(self.queue)
 				self.queue = None
-			
-		
+				
+	def tick(self):
+		for game in self.games:
+			if game.turnsremaining == 0:
+				for i in range(game.player_num):
+					game.playerchan[i].Send({"action":"endgame"})	
+					
 	def setGame(self,player_num):
 		self.queue = Game(self.first_channel, self.currentIndex, player_num)
 		self.unset = 0
@@ -109,6 +122,11 @@ class BoardServer(PodSixNet.Server.Server):
 		game = [a for a in self.games if a.gameid==gameid]
 		if len(game)==1:
 			game[0].cardChosen(discards,card,num)
+			
+	def cardAction(self, removecard,removeplayer, card, num, gameid):
+		game = [a for a in self.games if a.gameid==gameid]
+		if len(game)==1:
+			game[0].cardAction(removecard,removeplayer,card,num)
 		
 class Game:
 	def __init__(self, player0, currentIndex, player_num):
@@ -125,10 +143,16 @@ class Game:
 		
 		self.players = [Player() for i in range(self.player_num)]
 		
+		self.turnsremaining = 24 - self.player_num
+		
 	def cardPlay(self,card,num):
 		if num == self.turn:
-			for i in range(self.player_num):
-				self.playerchan[i].Send({"action":"cardplay","stage":"action phase"})
+			if card == 3:
+				for i in range(self.player_num):
+					self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"card action phase"})	
+			else:
+				for i in range(self.player_num):
+					self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"action phase"})
 				
 	def pickPRace(self, p_race, num):
 		if num == self.turn:
@@ -147,30 +171,31 @@ class Game:
 			self.turn = self.turn%self.player_num
 
 	def takeCard(self,num):
-		print self.players[num].card_pickup_number
-		print self.players[num].secrace
 		if num == self.turn:
 			for i in range(self.player_num):
 				if len(self.take_deck.deck) < self.players[num].card_pickup_number:
 					self.take_deck.combineDecks(self.discard_deck.deck)
 					self.discard_deck.emptyDeck()
 				self.playerchan[i].Send({"action":"takecard","cards":self.take_deck.deck[:self.players[num].card_pickup_number],"stage":"choose card"})
-				self.take_deck.deck[0:self.players[num].card_pickup_number] = []
+			self.take_deck.deck[0:self.players[num].card_pickup_number] = []
 			
 	def cardChosen(self,discards,card,num):
 		if num == self.turn:
-			print self.players[num].takecardnum
-			print self.players[num].card_pickup_number
-			print len(discards)
 			if self.players[num].takecardnum > (self.players[num].card_pickup_number - len(discards)):
 				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"cardgain","card":card,"player":num,"stage":"choose card","cards":discards})
 			else:
 				self.turn = (self.turn+1)%self.player_num
 				for i in range(self.player_num):
-					self.playerchan[i].Send({"action":"cardgainend","card":card,"player":num,"stage":"card phase","turn":self.turn})					
+					self.playerchan[i].Send({"action":"cardgainend","card":card,"player":num,"stage":"card phase","turn":self.turn})
+				if self.turn == 0:
+					self.turnsremaining -= 1				
 				self.discard_deck.combineDecks(discards)
-
+				
+	def cardAction(self,removecard,removeplayer,card,num):
+		if num == self.turn:
+			for i in range(self.player_num):
+				self.playerchan[i].Send({"action":"losecard","card":removecard,"player":removeplayer,"stage":"action phase"})
 					
 class Deck(object):
 
@@ -270,4 +295,5 @@ else:
 bgServe = BoardServer(localaddr=(host,int(port)))
 while True:
 	bgServe.Pump()
+	bgServe.tick()
 	sleep(0.01)
