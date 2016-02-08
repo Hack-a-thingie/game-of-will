@@ -83,6 +83,8 @@ class BoardGame(ConnectionListener):
 		self.justclicked = 10
 		self.on_image = 0
 
+		self.turn_no = 0
+
 	def Network_setgame(self,data):
 		#first person to connect to server determines player number
 		player_num = input("How many players?:")
@@ -116,6 +118,7 @@ class BoardGame(ConnectionListener):
 		self.hexgrd.change_owner(data["player"],data["position"][0],data["position"][1])
 		self.stage = data["stage"]
 		self.turn = 1 if data["turn"]%self.player_num == self.num else 0
+		self.turn_no = data["turn"]
 		
 	def Network_cardplacehex(self,data):
 		#result of played card action
@@ -176,6 +179,7 @@ class BoardGame(ConnectionListener):
 		self.turn = 1 if data["turn"]%self.player_num == self.num else 0
 		self.players[data["player"]].addToHand(data["card"])
 		self.stage = data["stage"]
+		self.turn_no = data["turn"]
 		
 	def Network_stopterrtake(self,data):
 		#result of choosing a card from draw action when there are no more cards to be chosen
@@ -215,6 +219,8 @@ class BoardGame(ConnectionListener):
 		self.largeText = pygame.font.Font('freesansbold.ttf',40)
 		self.TextSurf, self.TextRect = self.text_objects("Skip Card Phase?", self.largeText)
 		self.TextRect.center = (self.resl.current_w/2,self.resl.current_h/2)
+		self.redindicator = pygame.image.load("BGHackathon/redindicator.png")
+		self.greenindicator = pygame.image.load("BGHackathon/greenindicator.png")
 				
 	def drawBoard(self):
 		#draw board at screen resolution
@@ -233,6 +239,15 @@ class BoardGame(ConnectionListener):
 	def drawDecks(self):
 		self.screen.blit(pygame.transform.scale(self.card_back, [self.take_deck_pos.w,self.take_deck_pos.h]),[self.take_deck_pos.x,self.take_deck_pos.y])
 		
+	def drawHUD(self):
+		self.rounds_rmn = 24-2*self.player_num - self.turn_no/self.player_num
+		label = self.largeText.render("Rounds remaining: %r"%self.rounds_rmn,1,(0,0,0))
+		self.screen.blit(label,(400,10))
+		if self.turn:
+			self.screen.blit(self.greenindicator,(300,10))
+		else:
+			self.screen.blit(self.redindicator,(300,10))
+	
 	def text_objects(self, text, font):
 		#use for creating textboxes
 		textSurface = font.render(text, True, [0,0,0])
@@ -321,7 +336,7 @@ class BoardGame(ConnectionListener):
 					
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
-			
+			self.drawHUD()	
 			
 		elif self.stage == "card phase" or self.stage == "bonus card phase":	
 			if self.turn == True:
@@ -352,6 +367,7 @@ class BoardGame(ConnectionListener):
 
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 			
 			
 		#NEEDS TO BE GENERALISED
@@ -456,6 +472,7 @@ class BoardGame(ConnectionListener):
 								
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 					
 			
 		elif self.stage == "action phase":
@@ -473,6 +490,7 @@ class BoardGame(ConnectionListener):
 						self.justclicked = 10
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 						
 		elif self.stage == "bonus place hex":
 			if self.turn == True:
@@ -483,6 +501,7 @@ class BoardGame(ConnectionListener):
 						self.justclicked = 10
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 			
 		elif self.stage == "bonus place hex card":
 			if self.turn == True:
@@ -493,6 +512,7 @@ class BoardGame(ConnectionListener):
 						self.justclicked = 10
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 			
 		elif self.stage == "choose card":
 			if self.turn == True:
@@ -511,6 +531,7 @@ class BoardGame(ConnectionListener):
 							self.justclicked = 10
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
+			self.drawHUD()
 
 		pygame.display.flip()
 			
