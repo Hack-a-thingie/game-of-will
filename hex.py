@@ -17,13 +17,15 @@ GREENA = (0, 255, 0, 0.3)
 RED = (255, 0, 0)
 REDA = (255, 0, 0, 0.3)
 YELLOWA=(255, 255, 0, 0.3)
+DGREY = (120,120,120,0.4)
+LGREY = (200,200,200)
 
 class Hexagon(object):
 
     def __init__(self, col, row, radius, offset_x,offset_y):
         self.player=100
 	self.tiletype = "normal"
-        self.colour=WHITE
+        self.colour=LGREY
         self.transcolour=WHITEA
         self.radius = radius
     	self.offsetx = offset_x
@@ -99,7 +101,7 @@ class Hexgrid(object):
 
     def setscoreterr(self,coords):
         for i in coords:
-	    self.hexdict["hex%r_%r"%(i[0],i[1])].setTileType("score",BLACK)
+	    self.hexdict["hex%r_%r"%(i[0],i[1])].setTileType("score",DGREY)
 
     def cube2hex(self,cube_coord):
         self.hex_x=cube_coord[0]
