@@ -68,6 +68,7 @@ class BoardGame(ConnectionListener):
 		self.screen.fill(background_colour)
 		
 		self.hexgrd = hex.Hexgrid(round((self.resl.current_w-400)/30),350,150,self.screen)
+		self.hexgrd.setstartterr([[1,1],[5,7],[1,2],[4,6],[5,6]])
 		
 		#initialise players
 		self.players = []
@@ -108,6 +109,7 @@ class BoardGame(ConnectionListener):
 		self.stage = data["stage"]
 		
 	def Network_placehex(self,data):
+		print "trying to place"
 		#result of played card action
 		self.hexgrd.change_owner(data["player"],data["position"][0],data["position"][1])
 		self.stage = data["stage"]
@@ -284,11 +286,11 @@ class BoardGame(ConnectionListener):
 							
 		elif self.stage == "pick territories":
 			if self.turn == True:
-#				if self.hexgrd.startterritory(self.hexgrd.hex_round(xpos,ypos):
-#				self.on_image = True
-				if pygame.mouse.get_pressed()[0] and self.justclicked<=0 and not self.hexgrd.occupied(xpos,ypos):
-					self.Send({"action":"placehex","stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
-					self.justclicked = 10
+				if self.hexgrd.thistype(xpos,ypos) == "terr" and not self.hexgrd.occupied(xpos,ypos) and self.hexgrd.onboard(xpos,ypos):
+					self.on_image = True
+			        	if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
+						self.Send({"action":"placehex","stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
+						self.justclicked = 10
 					
 			self.drawDecks()
 			self.drawPlayerCards(xpos,ypos)
@@ -351,35 +353,35 @@ class BoardGame(ConnectionListener):
 								self.justclicked = 10
 								
 				elif self.playingcard == 1:
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 15 and not self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 15 and self.hexgrd.thistype(xpos,ypos) == "normal" and self.hexgrd.onboard(xpos,ypos) and not self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"placehex","card":self.playingcard,"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
 							self.justclicked = 10
 								
 				elif self.playingcard == 2:
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"placehex","card":self.playingcard,"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
 							self.justclicked = 10
 								
 				elif self.playingcard == 10:
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"placehex","card":self.playingcard,"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
 							self.justclicked = 10
 								
 				elif self.playingcard == 11:
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"placehex","card":self.playingcard,"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
 							self.justclicked = 10
 								
 				elif self.playingcard == 12:
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"placehex","card":self.playingcard,"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
@@ -394,7 +396,7 @@ class BoardGame(ConnectionListener):
 								
 				elif self.playingcard == 8:
 					print self.hexgrd.occupied(xpos,ypos)
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.numterr(xpos,ypos) <= 3 + self.players[self.num].attackbonus and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"removehex","card":self.playingcard,"opponent":self.hexgrd.occupied_by(xpos,ypos),"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
@@ -402,7 +404,7 @@ class BoardGame(ConnectionListener):
 								
 				elif self.playingcard == 7:
 					print self.hexgrd.occupied(xpos,ypos)
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.numterr(xpos,ypos) <= 2 + self.players[self.num].attackbonus and self.hexgrd.onboard(xpos,ypos) and self.hexgrd.occupied(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"removehex","card":self.playingcard,"opponent":self.hexgrd.occupied_by(xpos,ypos),"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
@@ -410,7 +412,7 @@ class BoardGame(ConnectionListener):
 								
 				elif self.playingcard == 6:
 					print self.hexgrd.occupied(xpos,ypos)
-					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.occupied(xpos,ypos):
+					if self.hexgrd.close_neighbour(self.num,xpos,ypos) <= 1 and self.hexgrd.numterr(xpos,ypos) <= 1 + self.players[self.num].attackbonus and self.hexgrd.occupied(xpos,ypos) and self.hexgrd.onboard(xpos,ypos):
 						self.on_image = True
 						if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 							self.Send({"action":"removehex","card":self.playingcard,"opponentnum":self.hexgrd.occupied_by(xpos,ypos),"stage":self.stage,"position":[xpos,ypos],"gameid":self.gameid,"num":self.num})
@@ -430,6 +432,7 @@ class BoardGame(ConnectionListener):
 		elif self.stage == "action phase":
 			if self.turn == True:
 				if self.take_deck_pos.withinRect(xpos,ypos):
+					self.on_image = True
 					if pygame.mouse.get_pressed()[0] and self.justclicked<=0:
 						self.Send({"action":"takecard","gameid":self.gameid,"num":self.num})
 						self.players[self.num].preventterr = False

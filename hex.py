@@ -22,7 +22,8 @@ class Hexagon(object):
 
     def __init__(self, col, row, radius, offset_x,offset_y):
         self.player=100
-        self.colour=BLUE
+	self.tiletype = "normal"
+        self.colour=WHITE
         self.transcolour=WHITEA
         self.radius = radius
     	self.offsetx = offset_x
@@ -52,6 +53,17 @@ class Hexagon(object):
             self.vertex_y = self.y_pixel+self.radius*math.sin(angle_rad)
             self.vertices_points.append([self.vertex_x, self.vertex_y])
 
+    def setTileType(self,tile_type,colour):
+        self.tiletype = tile_type
+	self.colour = colour
+
+    def isstartterr(self):
+	if self.tiletype == "terr":
+	    return True
+        else:
+	    return False
+	
+
 class Hexgrid(object):
 
     def __init__(self,size,offset_x,offset_y,screen):
@@ -80,6 +92,14 @@ class Hexgrid(object):
             pygame.draw.polygon(self.screen, self.hexdict[a].colour, self.plist, 0)
             #pygame.draw.polygon(self.screen, self.hexdict[a].transcolour, self.plist, 0)
             pygame.draw.aalines(self.screen, BLACK, True, self.plist, True)
+
+    def setstartterr(self,coords):
+        for i in coords:
+	    self.hexdict["hex%r_%r"%(i[0],i[1])].setTileType("terr",BLUE)
+
+    def setscoreterr(self,coords):
+        for i in coords:
+	    self.hexdict["hex%r_%r"%(i[0],i[1])].setTileType("score",BLACK)
 
     def cube2hex(self,cube_coord):
         self.hex_x=cube_coord[0]
@@ -155,6 +175,25 @@ class Hexgrid(object):
                         return False
                     else:
                         return True
+
+    def onboard(self,mouse_x,mouse_y):
+	    onboard = False
+            self.hex_round(mouse_x,mouse_y)
+            self.hex_cube=self.cube_round(self.hex2cube(self.pixel_to_hex(mouse_x,mouse_y)[0],self.pixel_to_hex(mouse_x,mouse_y)[1]))
+            for k in self.hexdict:
+                if self.hexdict[k].cube_xyz == self.hex_cube:
+                    if self.hexdict[k].player == 100:
+                        onboard = True                 
+            return onboard
+
+    def thistype(self,mouse_x,mouse_y):
+	ttype = "normal"
+        self.hex_round(mouse_x,mouse_y)
+        self.hex_cube=self.cube_round(self.hex2cube(self.pixel_to_hex(mouse_x,mouse_y)[0],self.pixel_to_hex(mouse_x,mouse_y)[1]))
+        for k in self.hexdict:
+            if self.hexdict[k].cube_xyz == self.hex_cube:
+                ttype = self.hexdict[k].tiletype           
+        return ttype
 
     def change_owner(self,playernum,mouse_x,mouse_y):
         self.hex_round(mouse_x,mouse_y)
