@@ -5,18 +5,20 @@ from random import shuffle
 from time import sleep
 
 class ClientChannel(PodSixNet.Channel.Channel):
+	
 	def Network(self,data):
 		print data
-	
+			
 	def Network_setgame(self,data):
 		player_num = data["player_num"]
 		self._server.setGame(player_num)
 
 	def Network_cardplay(self,data):
+		stage = data["stage"]
 		card = data["card"]
 		num = data["num"]
 		self.gameid = data["gameid"]
-		self._server.cardPlay(card,num,self.gameid) 
+		self._server.cardPlay(card,num,stage,self.gameid) 
 		
 	def Network_placehex(self,data):
 		hex_pos = data["position"]
@@ -37,7 +39,7 @@ class ClientChannel(PodSixNet.Channel.Channel):
 		hex_pos = data["position"]
 		num = data["num"]
 		card = data["card"]
-		opponent_num = data["opponentnum"]
+		opponent_num = data["opponent"]
 		stage = data["stage"]
 		self.gameid = data["gameid"]
 		self._server.cardRemoveHex(hex_pos,card,num,opponent_num,stage,self.gameid)
@@ -97,7 +99,7 @@ class BoardServer(PodSixNet.Server.Server):
 		self.currentPlayers = 0
 
 	channelClass = ClientChannel
-	
+
 	def Connected(self,channel,addr):
 		print 'new connection:', channel
 		
@@ -125,6 +127,7 @@ class BoardServer(PodSixNet.Server.Server):
 					
 				self.games.append(self.queue)
 				self.queue = None
+				self.currentPlayers = 0
 				
 	def tick(self):
 		for game in self.games:
@@ -136,10 +139,10 @@ class BoardServer(PodSixNet.Server.Server):
 		self.queue = Game(self.first_channel, self.currentIndex, player_num)
 		self.unset = 0
 			
-	def cardPlay(self, card, num, gameid):
+	def cardPlay(self, card, num, stage,gameid):
 		game = [a for a in self.games if a.gameid==gameid]
 		if len(game)==1:
-			game[0].cardPlay(card,num)
+			game[0].cardPlay(card,num,stage)
 			
 	def pickPRace(self, p_race, num, gameid):
 		game = [a for a in self.games if a.gameid==gameid]
@@ -166,7 +169,7 @@ class BoardServer(PodSixNet.Server.Server):
 		if len(game)==1:
 			game[0].removePlayerCard(removecard,removeplayer,card,num)
 			
-	def placeHex(self, hex_pos, num ,stage, gameid):
+	def placeHex(self, hex_pos, num, stage, gameid):
 		game = [a for a in self.games if a.gameid==gameid]
 		if len(game)==1:
 			game[0].placeHex(hex_pos,num,stage)
@@ -186,10 +189,10 @@ class BoardServer(PodSixNet.Server.Server):
 		if len(game)==1:
 			game[0].stopTerrTake(stopplayer,card,num)
 			
-	def cardblockHex(self, blockpos, card, num, gameid):
+	def cardBlockHex(self, blockpos, card, num, gameid):
 		game = [a for a in self.games if a.gameid==gameid]
 		if len(game)==1:
-			game[0].blockHex(blockpos,card,num)
+			game[0].cardBlockHex(blockpos,card,num)
 		
 class Game:
 	def __init__(self, player0, currentIndex, player_num):
@@ -210,29 +213,41 @@ class Game:
 		
 		self.turnsremaining = 24 - self.player_num
 		
-	def cardPlay(self,card,num):
-		if num == self.turn:
-			if card == "skip":
-				for i in range(self.player_num):
-					self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"action phase"})	
-			else:
-				for i in range(self.player_num):
-					self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"card action phase"})
+	def cardPlay(self,card,num,stage):
+		if num == self.turn%self.player_num:
+			if stage == "card phase":
+				if card == "skip":
+					print "skippping"
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"action phase"})	
+				else:
+					if self.players[num].bonusplaycard:
+						for i in range(self.player_num):
+							self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"bonus card action phase"})
+					else:
+						for i in range(self.player_num):
+							self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"card action phase"})
+							
+			elif stage == "bonus card phase":
+				if card == "skip":
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"action phase"})	
+				else:
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"cardplay","card":card,"stage":"card action phase"})
+				
 				
 	def pickPRace(self, p_race, num):
-		if num == self.turn:
-			print self.turn
+		if num == self.turn%self.player_num:
 			self.turn += 1
-			print self.turn
 			self.players[num].setPrimerace(p_race)
 			for i in range(self.player_num):
 				self.playerchan[i].Send({"action":"pracechoose","stage":"choose p race" if self.turn<self.player_num else "choose s race","player":num,"prace":p_race,"turn":self.turn if self.turn<self.player_num else (self.turn-1)})
 			if not self.turn < self.player_num:
 				self.turn -= 1
-				print self.turn
 				
 	def pickSRace(self, s_race, num):
-		if num == self.turn:
+		if num == self.turn%self.player_num:
 			self.turn -= 1
 			self.players[num].setSecrace(s_race)
 			for i in range(self.player_num):
@@ -241,7 +256,7 @@ class Game:
 				self.turn = 0
 
 	def takeCard(self,num):
-		if num == self.turn:
+		if num == self.turn%self.player_num:
 			for i in range(self.player_num):
 				if len(self.take_deck.deck) < self.players[num].card_pickup_number:
 					self.take_deck.combineDecks(self.discard_deck.deck)
@@ -250,74 +265,103 @@ class Game:
 			self.take_deck.deck[0:self.players[num].card_pickup_number] = []
 			
 	def cardChosen(self,discards,card,num):
-		if num == self.turn:
+		if num == self.turn%self.player_num:
 			if self.players[num].takecardnum > (self.players[num].card_pickup_number - len(discards)):
 				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"cardgain","card":card,"player":num,"stage":"choose card","cards":discards})
 			else:
-				self.turn = (self.turn+1)%self.player_num
+				self.turn = self.turn+1
 				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"cardgainend","card":card,"player":num,"stage":"card phase","turn":self.turn})
 				
-				if self.turn == 0:
+				if self.turn%self.player_num == 0:
 					self.turnsremaining -= 1				
 				self.discard_deck.combineDecks(discards)
 				
 	def removePlayerCard(self,removecard,removeplayer,card,num):
-		if num == self.turn:
+		if num == self.turn%self.player_num:
 			for i in range(self.player_num):
 				self.playerchan[i].Send({"action":"losecard","card":card,"player":num,"losecard":removecard,"loseplayer":removeplayer,"stage":"action phase"})
 				
 	def placeHex(self,hex_pos,num,stage):
-		if num == self.turn:				
-			if stage == "pick territories":
-				if self.terrpicked < 1:
-					self.turn = (self.turn+1)%self.player_num
-					for i in range(self.player_num):
-						self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"pick territories","turn":self.turn})
-					if self.turn == 0:
-						self.terrpicked += 1
-				else:
-					self.turn = (self.turn+1)%self.player_num
-					for i in range(self.player_num):
-						self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"card phase" if self.turn == 0 else "pick territories","turn":self.turn})
-						
-			elif stage == "action phase":
+				
+		if stage == "pick territories":
+			if self.terrpicked < 1:
 				self.turn = (self.turn+1)%self.player_num
 				for i in range(self.player_num):
+					self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"pick territories","turn":self.turn})
+				if self.turn%self.player_num == 0:
+					self.terrpicked += 1
+			else:
+				self.turn = (self.turn+1)%self.player_num
+				if self.turn%self.player_num == 0:
+					for i in range(self.player_num):
+						if self.players[i].bonusstartterr:
+							for j in range(self.player_num):
+								self.playerchan[j].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"bonus pick territories","turn":i})
+							return
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"card phase","turn":self.turn})
+				else:
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"pick territories","turn":self.turn})
+		elif stage == "bonus pick territories":
+			for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"card phase","turn":self.turn})
+						
+								
+		elif stage == "action phase":
+			if self.players[num].bonuswhiteterr:
+				for i in range(self.player_num):
+					self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"bonus place hex","turn":self.turn})
+			else:
+				self.turn = self.turn+1
+				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"card phase","turn":self.turn})
+					
+		
+		elif stage == "bonus place hex":
+			self.turn = self.turn+1
+			for i in range(self.player_num):
+				self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"card phase","turn":self.turn})
 				
-				if self.turn == 0:
-					self.turnsremaining -= 1
+		elif stage == "bonus place hex card":
+			for i in range(self.player_num):
+				self.playerchan[i].Send({"action":"placehex","position":hex_pos,"player":num,"stage":"action phase","turn":self.turn})
 					
 	def cardPlaceHex(self,hex_pos,card,num,stage):
-		if num == self.turn:
-			if stage == "card action phase":
-				for i in range(self.player_num):
-					self.playerchan[i].Send({"action":"cardplacehex","card":card,"position":hex_pos,"player":num,"stage":"action phase","turn":self.turn})
+		if num == self.turn%self.player_num:
+			if stage == "card action phase" or stage == "bonus card action phase":
+				if card == 9:
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"cardplacehex","card":card,"position":hex_pos,"player":num,"stage":"bonus place hex card","turn":self.turn})
+				else:
+					for i in range(self.player_num):
+						self.playerchan[i].Send({"action":"cardplacehex","card":card,"position":hex_pos,"player":num,"stage":"action phase","turn":self.turn})
 					
 					
 	def cardRemoveHex(self,hex_pos,card,num,opponent_num,stage):
-		if num == self.turn:
-			if stage == "card action phase":
+		if num == self.turn%self.player_num:
+			if stage == "card action phase" or stage == "bonus card action phase":
 				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"cardremovehex","card":card,"player":num,"position":hex_pos,"opponent":opponent_num,"stage":"action phase","turn":self.turn})
 							
 			elif stage == "action phase":
-				self.turn = (self.turn+1)%self.player_num
+				self.turn = self.turn+1
 				for i in range(self.player_num):
 					self.playerchan[i].Send({"action":"removehex","position":hex_pos,"opponent":opponent_num,"stage":"card phase","turn":self.turn})
 				
-				if self.turn == 0:
+				if self.turn%self.player_num == 0:
 					self.turnsremaining -= 1
 					
 	def stopTerrTake(self,stopplayer,card,num):
-		if num == self.turn:
+		if num == self.turn%self.player_num:
 			for i in range(self.player_num):
 				self.playerchan[i].Send({"action":"stopterrtake","stopplayer":stopplayer,"stage":"action phase"})
 				
-	def cardBlockHex(self,blockpos,num):
-		if num == self.turn:
+	def cardBlockHex(self,blockpos,card,num):
+		print "here"
+		if num == self.turn%self.player_num:
 			for i in range(self.player_num):
 				self.playerchan[i].Send({"action":"cardblockhex","card":card,"player":num,"blockpos":blockpos,"stage":"action phase"})
 					
@@ -352,12 +396,12 @@ class Player(object):
 		
 		self.attackbonus = 0
 		self.trapcapture = False
-		self.playcardnum = 1
+		self.bonusplaycard = False
 		self.blackpointbonus = False
 		self.hexrange = 1
 		self.bonuswhiteterr = False
 		self.takecardnum = 1
-		self.startterrnum = 2
+		self.bonusstartterr = False
 		self.blockhex = False
 		self.rearrangeterr = False
 		
@@ -384,7 +428,7 @@ class Player(object):
 		elif self.primerace == 1:
 			self.trapcapture = True
 		elif self.primerace == 2:
-			self.playcardnum += 1
+			self.bonusplaycard = True
 		elif self.primerace == 3:
 			self.blackpointbonus = True
 		elif self.primerace == 4:
@@ -401,7 +445,7 @@ class Player(object):
 		elif self.secrace == 1:
 			self.takecardnum += 1
 		elif self.secrace == 2:
-			self.startterrnum += 1
+			self.bonusstartterr = True
 		elif self.secrace == 3:
 			self.card_pickup_number = 5
 		elif self.secrace == 4:
