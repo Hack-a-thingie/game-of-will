@@ -5,42 +5,21 @@ from random import shuffle
 from time import sleep
 
 class ClientChannel(PodSixNet.Channel.Channel):
+	
 	def Network(self,data):
 		print data
-	
-	def Network_setgame(self,data):
-		player_num = data["player_num"]
-		self._server.setGame(player_num)
 
-	def Network_cardplay(self,data):
-		card = data["card"]
-		num = data["num"]
-		self.gameid = data["gameid"]
-		self._server.cardPlay(card,num,self.gameid) 
-		
-	def Network_choose_p_race(self,data):
-		p_race = data["p race"]
-		num = data["num"]
-		self.gameid = data["gameid"]
-		self._server.pickPRace(p_race,num,self.gameid)
-		
-	def Network_choose_s_race(self,data):
-		s_race = data["s race"]
-		num = data["num"]
-		self.gameid = data["gameid"]
-		self._server.pickSRace(s_race,num,self.gameid)
-		
-	def Network_takecard(self,data):
-		takenumber = data["takenumber"]
-		num = data["num"]
-		self.gameid = data["gameid"]
-		self._server.takeCard(takenumber,num,self.gameid)
-		
-	def Network_cardchosen(self,data):
-		card = data["card"]
-		num = data["num"]
-		self.gameid = data["gameid"]
-		self._server.cardChosen(card,num,self.gameid)
+	def Network_talk(self,data):
+		gameid = data["gameid"]
+		self._server.passToGame(data,gameid)
+			
+	def Network_setgame(self,data):
+		number_players = data["number players"]
+		self._server.setGame(number_players)
+
+	def Network_endturn(self,data):
+		gameid = data["gameid"]
+		self._server.endTurn(data,gameid)
 		
 class BoardServer(PodSixNet.Server.Server):
 	def __init__(self, *args, **kwargs):
@@ -51,7 +30,7 @@ class BoardServer(PodSixNet.Server.Server):
 		self.currentPlayers = 0
 
 	channelClass = ClientChannel
-	
+
 	def Connected(self,channel,addr):
 		print 'new connection:', channel
 		
@@ -67,106 +46,221 @@ class BoardServer(PodSixNet.Server.Server):
 				sleep(0.01)
 		else:
 			channel.gameid = self.currentIndex
-			self.queue.players.append(channel)
+			self.queue.player_channel.append(channel)
 			self.currentPlayers+=1
 			
-			if self.currentPlayers == self.queue.player_num:
-				p_races = random.sample(range(6), self.queue.player_num+1)
-				s_races = random.sample(range(6), self.queue.player_num+1)
+			if self.currentPlayers == self.queue.number_players:
+				primary_races = random.sample(range(6), self.queue.number_players+1)
+				print primary_races
+				secondary_races = random.sample(range(6), self.queue.number_players+1)
+				print secondary_races
 			
-				for i in range(self.queue.player_num):
-					self.queue.players[i].Send({"action":"startgame","player_num":self.queue.player_num,"player":i,"gameid":self.queue.gameid,"stage":"choose p race","p_races":p_races,"s_races":s_races})
+				for i in range(self.queue.number_players):
+					self.queue.player_channel[i].Send({"action":"startgame","number players":self.queue.number_players,"player":i,"gameid":self.queue.gameid,"primary races":primary_races,"secondary races":secondary_races})
 					
 				self.games.append(self.queue)
 				self.queue = None
-			
-		
-	def setGame(self,player_num):
-		self.queue = Game(self.first_channel, self.currentIndex, player_num)
+				self.currentPlayers = 0
+
+	def passToGame(self,data,gameid):
+		game = [a for a in self.games if a.gameid==gameid]
+		if len(game)==1:
+			game[0].unpackData(data)
+					
+	def setGame(self,number_players):
+		self.queue = Game(self.first_channel, self.currentIndex, number_players)
 		self.unset = 0
-			
-	def cardPlay(self, card, num, gameid):
+
+	def endTurn(self,data,gameid):
 		game = [a for a in self.games if a.gameid==gameid]
 		if len(game)==1:
-			game[0].cardPlay(card,num)
-			
-	def pickPRace(self, p_race, num, gameid):
-		game = [a for a in self.games if a.gameid==gameid]
-		if len(game)==1:
-			game[0].pickPRace(p_race,num)
-			
-	def pickSRace(self, s_race, num, gameid):
-		game = [a for a in self.games if a.gameid==gameid]
-		if len(game)==1:
-			game[0].pickSRace(s_race,num)
-	
-	def takeCard(self, takenumber, num, gameid):
-		game = [a for a in self.games if a.gameid==gameid]
-		if len(game)==1:
-			game[0].takeCard(takenumber,num)
-			
-	def cardChosen(self, card, num, gameid):
-		game = [a for a in self.games if a.gameid==gameid]
-		if len(game)==1:
-			game[0].cardChosen(card,num)
+			game[0].endTurn(data)
 		
 class Game:
-	def __init__(self, player0, currentIndex, player_num):
+	def __init__(self, player0, currentIndex, number_players):
 	
-		self.turn = 0
-		self.player_num = player_num
-		self.players = []
-		self.players.append(player0)
-		self.stage = "card"	
+		self.number_players = number_players
+		self.player_channel = []
+		self.player_channel.append(player0)
+
 		self.gameid = currentIndex
 				
 		self.take_deck = Deck(10)
-		self.discard_deck = Deck(0)
-
+		self.discards = Deck(0)
+		self.top_cards = []
 		
-	def cardPlay(self,card,num):
-		if num == self.turn:
-			for i in range(self.player_num):
-				self.players[i].Send({"action":"cardplay","stage":"action phase"})
-				
-	def pickPRace(self, p_race, num):
-		if num == self.turn:
-			self.turn += 1
-			for i in range(self.player_num):
-				self.players[i].Send({"action":"pracechoose","stage":"choose p race" if self.turn<self.player_num else "choose s race","player":num,"prace":p_race,"turn":self.turn%self.player_num})
-			self.turn = self.turn%self.player_num
+		self.turn = 0
+		self.round_number = 0
 
-	def pickSRace(self, s_race, num):
-		if num == self.turn:
-			self.turn += 1
-			for i in range(self.player_num):
-				self.players[i].Send({"action":"sracechoose","stage":"choose s race" if self.turn<self.player_num else "card phase","player":num,"srace":s_race,"turn":self.turn%self.player_num})
-			self.turn = self.turn%self.player_num
+		self.stage = "pick primary race"
 
-	def takeCard(self,takenumber,num):
-		if num == self.turn:
-			for i in range(self.player_num):
-				self.players[i].Send({"action":"takecard","cards":self.take_deck.deck[:takenumber],"stage":"choose card"})
-			
-	def cardChosen(self,card,num):
-		if num == self.turn:
-			self.turn += 1
-			for i in range(self.player_num):
-				self.players[i].Send({"action":"cardgain","card":card,"player":num,"stage":"card phase","turn":self.turn%self.player_num})
-			self.turn = self.turn%self.player_num	
+		self.bonus_starting_territory = False
+		self.number_territories_picked = 0
 
+		self.end_turn_switcher = {
+				"pick primary race":self.pickPrimaryRace,
+				"pick secondary race":self.pickSecondaryRace,
+				"pick starting territories":self.pickStartingTerritories,
+				"main":self.main
+				}
+
+	def pickPrimaryRace(self,data):
+		self.turn += 1
+		if self.turn%self.number_players == 0:
+			self.turn = self.number_players - 1
+			self.stage = "pick secondary race"
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick secondary race","place type":"all","round number":self.round_number,"player action":"choose secondary race","player":self.turn%self.number_players})
+		else:
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick primary race","place type":"all","player":self.turn%self.number_players,"player action":"same","round number":self.round_number})
+
+	def pickSecondaryRace(self,data):
+		self.turn -= 1
+		if self.turn == -1:
+			self.turn = 0
+			self.stage = "pick starting territories"
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick starting territory","place type":"terr","round number":self.round_number,"player action":"place hexagon","player":self.turn%self.number_players})
+		else:
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick secondary race","place type":"all","player":self.turn%self.number_players,"player action":"same","round number":self.round_number})
+
+	def pickStartingTerritories(self,data):
+		self.turn += 1
+		print self.turn
+		if self.turn%self.number_players == 0 and self.number_territories_picked == 1 and not self.bonus_starting_territory:
+			self.turn = 0
+			self.stage = "main"
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"main game","place type":"all","player":self.turn%self.number_players,"player action":"play card","round number":self.round_number})
+		elif self.turn%self.number_players == 0 and self.number_territories_picked == 1 and self.bonus_starting_territory:
+			self.turn = self.bonus_starting_territory_player
+			self.bonus_starting_territory = False
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick starting territory","place type":"terr","player":self.turn%self.number_players,"player action":"place hexagon","round number":self.round_number})
+			self.turn = -1
+
+		elif self.turn%self.number_players == 0:
+			self.number_territories_picked += 1
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick starting territory","place type":"terr","player":self.turn%self.number_players,"player action":"place hexagon","round number":self.round_number})
+
+		else:
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"pick starting territory","place type":"terr","player":self.turn%self.number_players,"player action":"place hexagon","round number":self.round_number})
+
+	def main(self,data):
+		self.turn += 1
+		if self.turn%self.number_players == 0:
+			self.round_number += 1
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"main game","place type":"all","player":self.turn%self.number_players,"player action":"same","round number":self.round_number})
+		else:
+			for player in self.player_channel:
+				player.Send({"action":"endturn","stage":"main game","place type":"all","player":self.turn%self.number_players,"player action":"same","round number":self.round_number})
+
+
+	def endTurn(self,data):
+
+
+		if not self.top_cards:
+			pass
+		else:
+			self.discards.combineDecks(self.top_cards)
+			self.top_cards = []
+
+		return self.end_turn_switcher[self.stage](data)
+
+
+	def unpackData(self,data):
+		switcher = {
+				"choose primary race":self.choosePrimaryRace,
+				"choose secondary race":self.chooseSecondaryRace,
+				"play card":self.playCard,
+				"take card":self.takeCard,
+				"place hexagon":self.placeHexagon,
+				"remove hexagon":self.removeHexagon,
+				"block hexagon":self.blockHexagon,
+				"choose take cards":self.chooseTakeCards,
+				"remove card":self.removeCard
+
+				}
+
+		return switcher[data["player action"]](data)
+
+	def choosePrimaryRace(self,data):
+		for player in self.player_channel:
+			player.Send({"action":"chooseprimaryrace","primary race":data["chosen race"],"player":data["playerid"]})
+
+	def chooseSecondaryRace(self,data):
+		if data["chosen race"] == 2:
+			self.bonus_starting_territory = True
+			self.bonus_starting_territory_player = data["playerid"]
+
+		for player in self.player_channel:
+			player.Send({"action":"choosesecondaryrace","secondary race":data["chosen race"],"player":data["playerid"]})
+
+	def playCard(self,data):
+		if not data["card"] == -1:
+			self.discards.deck.append(data["card"])
+			for player in self.player_channel:
+				player.Send({"action":"playcard","card":data["card"],"player":data["playerid"]})
+
+	def chooseTakeCards(self,data):
+		if len(self.take_deck.deck) < data["card pickup number"]:
+			self.take_deck.combineDecks(self.discards.deck)
+			self.discards.emptyDeck()
+		self.top_cards = self.take_deck.deck[0:data["card pickup number"]]
+		self.take_deck.deck[0:data["card pickup number"]] = []
+		for player in self.player_channel:
+			player.Send({"action":"choosetakecards","cards":self.top_cards})
+
+	def takeCard(self,data):
+		self.top_cards.remove(data["card"])
+		for player in self.player_channel:
+			player.Send({"action":"takecard","card":data["card"],"player":data["playerid"]})
+
+	def removeCard(self,data):
+		self.discards.deck.append(data["card"])
+		for player in self.player_channel:
+			player.Send({"action":"removecard","card":data["card"],"player":data["playerid"]})
+
+	def placeHexagon(self,data):
+		for player in self.player_channel:
+			player.Send({"action":"placehex","x":data["hex position"][0],"y":data["hex position"][1],"player":data["playerid"]})
+
+	def removeHexagon(self,data):
+		for player in self.player_channel:
+			player.Send({"action":"removehex","x":data["hex position"][0],"y":data["hex position"][1]})
+
+	def blockHexagon(self,data):
+		for player in self.player_channel:
+			player.Send({"action":"blockhex","x":data["hex position"][0],"y":data["hex position"][1]})
+					
 class Deck(object):
 
 	def __init__(self,number_cards):
-		self.deck = [i for i in range(1,number_cards) for _ in range(3)]
+		self.deck = [i for i in range(number_cards) for _ in range(3)]
 		self.shuffleDeck()
 		
 	def shuffleDeck(self):
 		shuffle(self.deck)
-					
+		
+	def combineDecks(self,decktomerge):
+		self.deck = self.deck + decktomerge
+		
+	def emptyDeck(self):
+		self.deck = []
+		
 		
 print "STARTING SERVER ON LOCALHOST"
-bgServe = BoardServer()
+address = raw_input("Host:Port (localhost:8000): ")
+if not address:
+	host, port = "localhost", 8000
+else:
+	host,port = address.split(":")	
+bgServe = BoardServer(localaddr=(host,int(port)))
 while True:
 	bgServe.Pump()
 	sleep(0.01)
